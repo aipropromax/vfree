@@ -21,11 +21,23 @@ jobs:
           sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' android/app/src/main/AndroidManifest.xml
       - run: flutter pub get
       - run: dart run flutter_launcher_icons
-      - run: flutter build apk --release
+      - run: flutter build apk --release 2>&1 | tee build.log
+      - name: Log kaydet (hata halinde debug branchine)
+        if: failure()
+        run: |
+          tail -n 400 build.log > /tmp/last.log || true
+          git config user.name bot
+          git config user.email bot@users.noreply.github.com
+          git checkout -B debug
+          mv /tmp/last.log build.log
+          git add build.log
+          git commit -m "build log"
+          git push -f origin debug
       - uses: actions/upload-artifact@v4
+        if: success()
         with: {name: vfree-apk, path: build/app/outputs/flutter-apk/app-release.apk}
       - uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/main'
+        if: success() && github.ref == 'refs/heads/main'
         with:
           tag_name: v${{ github.run_number }}
           name: vfree v${{ github.run_number }}
